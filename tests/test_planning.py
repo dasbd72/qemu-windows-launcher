@@ -6,6 +6,12 @@ OVMF_CODE_PATH = "/usr/share/ovmf/x64/OVMF_CODE.4m.fd"
 WIN_VARS_PATH = "/home/user/.config/qemu-wtg/win_vars.fd"
 
 
+def _config(**overrides):
+    config = {"disk_by_id": "/dev/disk/by-id/usb-example", **FIXED_DEFAULTS}
+    config.update(overrides)
+    return config
+
+
 class TestBuildArgv(unittest.TestCase):
     def test_matches_expected_qemu_flags(self):
         config = {
@@ -69,13 +75,8 @@ class TestBuildArgv(unittest.TestCase):
 
 
 class TestPlanLaunch(unittest.TestCase):
-    def _config(self, **overrides):
-        config = {"disk_by_id": "/dev/disk/by-id/usb-example", **FIXED_DEFAULTS}
-        config.update(overrides)
-        return config
-
     def test_resolves_configured_disk_and_builds_argv(self):
-        config = self._config()
+        config = _config()
         disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
 
         plan = plan_launch(config, disk_inventory, [], WIN_VARS_PATH)
@@ -86,7 +87,7 @@ class TestPlanLaunch(unittest.TestCase):
         self.assertIn("file=/dev/sdb,format=raw,if=none,id=disk,aio=native,cache=none", plan.argv)
 
     def test_stale_by_id_path_produces_clear_error_not_wrong_resolution(self):
-        config = self._config()
+        config = _config()
         # The by-id symlink the config points at is no longer present (drive
         # unplugged, or replaced) -- must not silently resolve to some other disk.
         disk_inventory = {}
@@ -108,7 +109,7 @@ class TestPlanLaunch(unittest.TestCase):
         self.assertIsNotNone(plan.error)
 
     def test_does_not_confuse_a_different_configured_disk_for_the_wrong_one(self):
-        config = self._config(disk_by_id="/dev/disk/by-id/usb-example")
+        config = _config(disk_by_id="/dev/disk/by-id/usb-example")
         disk_inventory = {
             "/dev/disk/by-id/usb-other": "/dev/sda",
             "/dev/disk/by-id/usb-example": "/dev/sdc",
@@ -121,13 +122,8 @@ class TestPlanLaunch(unittest.TestCase):
 
 
 class TestPlanLaunchMountRefusal(unittest.TestCase):
-    def _config(self, **overrides):
-        config = {"disk_by_id": "/dev/disk/by-id/usb-example", **FIXED_DEFAULTS}
-        config.update(overrides)
-        return config
-
     def test_mounted_partition_of_target_disk_produces_refusal(self):
-        config = self._config()
+        config = _config()
         disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
         mount_table = ["/dev/sdb1"]
 
@@ -139,7 +135,7 @@ class TestPlanLaunchMountRefusal(unittest.TestCase):
         self.assertIn("mounted", plan.error.lower())
 
     def test_mounted_whole_disk_itself_produces_refusal(self):
-        config = self._config()
+        config = _config()
         disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
         mount_table = ["/dev/sdb"]
 
@@ -149,7 +145,7 @@ class TestPlanLaunchMountRefusal(unittest.TestCase):
         self.assertIsNone(plan.argv)
 
     def test_nvme_style_partition_naming_is_recognized(self):
-        config = self._config()
+        config = _config()
         disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/nvme0n1"}
         mount_table = ["/dev/nvme0n1p2"]
 
@@ -159,7 +155,7 @@ class TestPlanLaunchMountRefusal(unittest.TestCase):
         self.assertIsNone(plan.argv)
 
     def test_mounted_partition_of_a_different_disk_does_not_refuse(self):
-        config = self._config()
+        config = _config()
         disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
         mount_table = ["/dev/sda1", "/dev/nvme0n1p2"]
 
@@ -172,7 +168,7 @@ class TestPlanLaunchMountRefusal(unittest.TestCase):
         # "/dev/sdba1" is a partition of the *different* disk "/dev/sdba"
         # (double-letter naming for >26 disks), not of "/dev/sdb" -- a naive
         # string-prefix check would wrongly treat it as sdb's partition.
-        config = self._config()
+        config = _config()
         disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
         mount_table = ["/dev/sdba1"]
 
@@ -182,7 +178,7 @@ class TestPlanLaunchMountRefusal(unittest.TestCase):
         self.assertIsNotNone(plan.argv)
 
     def test_empty_mount_table_does_not_refuse(self):
-        config = self._config()
+        config = _config()
         disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
 
         plan = plan_launch(config, disk_inventory, [], WIN_VARS_PATH)

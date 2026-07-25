@@ -67,6 +67,13 @@ def _size_human(device_name: str) -> str:
     return f"{size:.1f}P"
 
 
+def _describe(device: str) -> DiskDescription:
+    return DiskDescription(
+        model=_udev_property(device, "ID_MODEL") or "unknown model",
+        size_human=_size_human(os.path.basename(device)),
+    )
+
+
 def _find_by_id_path(device: str) -> str | None:
     """Find a stable /dev/disk/by-id/... path that resolves to `device`.
 
@@ -106,12 +113,13 @@ def list_candidate_disks(show_all: bool = False) -> list[DiskCandidate]:
         if by_id is None:
             continue  # no stable identifier available -- can't safely persist this choice
 
+        description = _describe(device)
         candidates.append(
             DiskCandidate(
                 by_id=by_id,
                 device=device,
-                model=_udev_property(device, "ID_MODEL") or "unknown model",
-                size_human=_size_human(name),
+                model=description.model,
+                size_human=description.size_human,
                 bus=bus,
             )
         )
@@ -133,10 +141,7 @@ def resolve_disk_inventory(disk_by_id: str) -> dict[str, str]:
 
 def describe_disk(device: str) -> DiskDescription:
     """Look up a resolved device's model/size, for display in a confirmation prompt."""
-    return DiskDescription(
-        model=_udev_property(device, "ID_MODEL") or "unknown model",
-        size_human=_size_human(os.path.basename(device)),
-    )
+    return _describe(device)
 
 
 def read_mounted_devices() -> list[str]:
