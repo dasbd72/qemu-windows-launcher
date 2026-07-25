@@ -1,4 +1,5 @@
 import argparse
+import os
 import shlex
 import sys
 from collections.abc import Callable
@@ -44,6 +45,12 @@ def cmd_configure(args: argparse.Namespace) -> int:
     return 0
 
 
+def _confirm_launch(model: str, size_human: str, device: str) -> bool:
+    prompt = f"About to boot {model} ({size_human}) via {device} -- continue? [y/N] "
+    answer = input(prompt).strip().lower()
+    return answer in ("y", "yes")
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     config = config_mod.load_config()
     if config is None:
@@ -52,23 +59,31 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     disk_by_id = config.get("disk_by_id")
     disk_inventory = disks_mod.resolve_disk_inventory(disk_by_id) if disk_by_id else {}
+    mount_table = disks_mod.read_mounted_devices()
 
-    plan = planning.plan_launch(config, disk_inventory, str(config_mod.win_vars_path()))
+    plan = planning.plan_launch(
+        config, disk_inventory, mount_table, str(config_mod.win_vars_path())
+    )
     if not plan.ok:
         print(plan.error, file=sys.stderr)
         return 1
     assert plan.argv is not None  # guaranteed by plan.ok, but not visible to mypy
+    assert plan.resolved_device is not None
 
     if args.dry_run:
         print(shlex.join(["sudo", "qemu-system-x86_64", *plan.argv]))
         return 0
 
-    print(
-        "Real launch isn't implemented yet -- use --dry-run to preview the "
-        "command that will eventually run.",
-        file=sys.stderr,
-    )
-    return 1
+    description = disks_mod.describe_disk(plan.resolved_device)
+    if not _confirm_launch(description.model, description.size_human, plan.resolved_device):
+        print("Aborted.", file=sys.stderr)
+        return 1
+
+    try:
+        os.execvp("sudo", ["sudo", "qemu-system-x86_64", *plan.argv])
+    except OSError as exc:
+        print(f"Failed to launch: {exc}", file=sys.stderr)
+        return 1
 
 
 def build_parser() -> argparse.ArgumentParser:

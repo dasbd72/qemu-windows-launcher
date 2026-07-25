@@ -78,7 +78,7 @@ class TestPlanLaunch(unittest.TestCase):
         config = self._config()
         disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
 
-        plan = plan_launch(config, disk_inventory, WIN_VARS_PATH)
+        plan = plan_launch(config, disk_inventory, [], WIN_VARS_PATH)
 
         self.assertTrue(plan.ok)
         self.assertIsNone(plan.error)
@@ -91,7 +91,7 @@ class TestPlanLaunch(unittest.TestCase):
         # unplugged, or replaced) -- must not silently resolve to some other disk.
         disk_inventory = {}
 
-        plan = plan_launch(config, disk_inventory, WIN_VARS_PATH)
+        plan = plan_launch(config, disk_inventory, [], WIN_VARS_PATH)
 
         self.assertFalse(plan.ok)
         self.assertIsNone(plan.argv)
@@ -101,7 +101,7 @@ class TestPlanLaunch(unittest.TestCase):
     def test_missing_disk_by_id_produces_clear_error(self):
         config = dict(FIXED_DEFAULTS)  # no disk_by_id key at all
 
-        plan = plan_launch(config, {}, WIN_VARS_PATH)
+        plan = plan_launch(config, {}, [], WIN_VARS_PATH)
 
         self.assertFalse(plan.ok)
         self.assertIsNone(plan.argv)
@@ -114,10 +114,80 @@ class TestPlanLaunch(unittest.TestCase):
             "/dev/disk/by-id/usb-example": "/dev/sdc",
         }
 
-        plan = plan_launch(config, disk_inventory, WIN_VARS_PATH)
+        plan = plan_launch(config, disk_inventory, [], WIN_VARS_PATH)
 
         self.assertTrue(plan.ok)
         self.assertEqual(plan.resolved_device, "/dev/sdc")
+
+
+class TestPlanLaunchMountRefusal(unittest.TestCase):
+    def _config(self, **overrides):
+        config = {"disk_by_id": "/dev/disk/by-id/usb-example", **FIXED_DEFAULTS}
+        config.update(overrides)
+        return config
+
+    def test_mounted_partition_of_target_disk_produces_refusal(self):
+        config = self._config()
+        disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
+        mount_table = ["/dev/sdb1"]
+
+        plan = plan_launch(config, disk_inventory, mount_table, WIN_VARS_PATH)
+
+        self.assertFalse(plan.ok)
+        self.assertIsNone(plan.argv)
+        self.assertIn("/dev/sdb", plan.error)
+        self.assertIn("mounted", plan.error.lower())
+
+    def test_mounted_whole_disk_itself_produces_refusal(self):
+        config = self._config()
+        disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
+        mount_table = ["/dev/sdb"]
+
+        plan = plan_launch(config, disk_inventory, mount_table, WIN_VARS_PATH)
+
+        self.assertFalse(plan.ok)
+        self.assertIsNone(plan.argv)
+
+    def test_nvme_style_partition_naming_is_recognized(self):
+        config = self._config()
+        disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/nvme0n1"}
+        mount_table = ["/dev/nvme0n1p2"]
+
+        plan = plan_launch(config, disk_inventory, mount_table, WIN_VARS_PATH)
+
+        self.assertFalse(plan.ok)
+        self.assertIsNone(plan.argv)
+
+    def test_mounted_partition_of_a_different_disk_does_not_refuse(self):
+        config = self._config()
+        disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
+        mount_table = ["/dev/sda1", "/dev/nvme0n1p2"]
+
+        plan = plan_launch(config, disk_inventory, mount_table, WIN_VARS_PATH)
+
+        self.assertTrue(plan.ok)
+        self.assertIsNotNone(plan.argv)
+
+    def test_similarly_prefixed_disk_name_is_not_falsely_matched(self):
+        # "/dev/sdba1" is a partition of the *different* disk "/dev/sdba"
+        # (double-letter naming for >26 disks), not of "/dev/sdb" -- a naive
+        # string-prefix check would wrongly treat it as sdb's partition.
+        config = self._config()
+        disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
+        mount_table = ["/dev/sdba1"]
+
+        plan = plan_launch(config, disk_inventory, mount_table, WIN_VARS_PATH)
+
+        self.assertTrue(plan.ok)
+        self.assertIsNotNone(plan.argv)
+
+    def test_empty_mount_table_does_not_refuse(self):
+        config = self._config()
+        disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
+
+        plan = plan_launch(config, disk_inventory, [], WIN_VARS_PATH)
+
+        self.assertTrue(plan.ok)
 
 
 if __name__ == "__main__":

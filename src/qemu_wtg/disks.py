@@ -29,6 +29,12 @@ class DiskCandidate:
     bus: str
 
 
+@dataclass
+class DiskDescription:
+    model: str
+    size_human: str
+
+
 def _udev_property(device: str, key: str) -> str | None:
     try:
         result = subprocess.run(
@@ -123,3 +129,27 @@ def resolve_disk_inventory(disk_by_id: str) -> dict[str, str]:
     if not os.path.exists(disk_by_id):
         return {}
     return {disk_by_id: os.path.realpath(disk_by_id)}
+
+
+def describe_disk(device: str) -> DiskDescription:
+    """Look up a resolved device's model/size, for display in a confirmation prompt."""
+    return DiskDescription(
+        model=_udev_property(device, "ID_MODEL") or "unknown model",
+        size_human=_size_human(os.path.basename(device)),
+    )
+
+
+def read_mounted_devices() -> list[str]:
+    """List every /dev device path currently mounted on the host, per /proc/mounts."""
+    try:
+        with open("/proc/mounts") as f:
+            lines = f.readlines()
+    except OSError:
+        return []
+
+    devices = []
+    for line in lines:
+        fields = line.split()
+        if fields and fields[0].startswith("/dev/"):
+            devices.append(fields[0])
+    return devices
