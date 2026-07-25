@@ -1,7 +1,7 @@
 # Tool versions for ruff/mypy/the test runner all come from uv.lock via
-# `uv run` -- see docs/agents (or README) for the one-time `uv sync &&
-# pre-commit install` setup step. Only the generic hygiene hooks below use
-# pre-commit's own mirrored repos, since their versions aren't project-specific.
+# `uv run` -- see README.md for the one-time `uv sync && pre-commit install`
+# setup step. Only the generic hygiene hooks below use pre-commit's own
+# mirrored repos, since their versions aren't project-specific.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
