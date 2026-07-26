@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 from . import config as config_mod
 from . import disks as disks_mod
+from . import firmware as firmware_mod
 from . import planning
 
 
@@ -55,6 +56,22 @@ def cmd_run(args: argparse.Namespace) -> int:
     config = config_mod.load_config()
     if config is None:
         print("No config found. Run `qemu-wtg configure` first.", file=sys.stderr)
+        return 1
+
+    ovmf_code_path = str(config.get("ovmf_code_path", planning.FIXED_DEFAULTS["ovmf_code_path"]))
+    ovmf_error = firmware_mod.check_ovmf_code_path(ovmf_code_path)
+    if ovmf_error is not None:
+        print(ovmf_error, file=sys.stderr)
+        return 1
+
+    ovmf_vars_template_path = str(
+        config.get("ovmf_vars_template_path", planning.FIXED_DEFAULTS["ovmf_vars_template_path"])
+    )
+    win_vars_error = firmware_mod.ensure_win_vars(
+        str(config_mod.win_vars_path()), ovmf_vars_template_path
+    )
+    if win_vars_error is not None:
+        print(win_vars_error, file=sys.stderr)
         return 1
 
     disk_by_id = config.get("disk_by_id")

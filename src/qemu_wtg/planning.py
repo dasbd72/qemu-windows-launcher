@@ -17,6 +17,7 @@ FIXED_DEFAULTS: Config = {
     "vga": "std",
     "display": "gtk",
     "ovmf_code_path": "/usr/share/ovmf/x64/OVMF_CODE.4m.fd",
+    "ovmf_vars_template_path": "/usr/share/ovmf/x64/OVMF_VARS.4m.fd",
 }
 
 
