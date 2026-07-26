@@ -58,6 +58,22 @@ def _prompt_memory(label: str, default: str) -> str:
         return raw
 
 
+def _prompt_choice(label: str, choices: tuple[str, ...], default: str) -> str:
+    default_index = choices.index(default) + 1 if default in choices else 1
+    print(f"{label}:")
+    for i, choice in enumerate(choices, start=1):
+        marker = " (default)" if i == default_index else ""
+        print(f"  {i}) {choice}{marker}")
+
+    while True:
+        raw = input(f"Enter 1-{len(choices)} [{default_index}]: ").strip()
+        if raw == "":
+            return choices[default_index - 1]
+        if raw.isdigit() and 1 <= int(raw) <= len(choices):
+            return choices[int(raw) - 1]
+        print("Invalid choice, try again.")
+
+
 def _default_int(existing: config_mod.Config, key: str) -> int:
     return int(existing[key]) if key in existing else int(planning.FIXED_DEFAULTS[key])
 
@@ -76,6 +92,10 @@ def cmd_configure(args: argparse.Namespace) -> int:
     cores = _prompt_int("Cores", _default_int(existing, "cores"))
     threads = _prompt_int("Threads", _default_int(existing, "threads"))
     memory = _prompt_memory("Memory", _default_str(existing, "memory"))
+    vga = _prompt_choice("VGA device", planning.VGA_CHOICES, _default_str(existing, "vga"))
+    display = _prompt_choice(
+        "Display backend", planning.DISPLAY_CHOICES, _default_str(existing, "display")
+    )
 
     config = {
         "disk_by_id": chosen.by_id,
@@ -83,6 +103,8 @@ def cmd_configure(args: argparse.Namespace) -> int:
         "cores": cores,
         "threads": threads,
         "memory": memory,
+        "vga": vga,
+        "display": display,
     }
     config_mod.save_config(config)
     print(f"Saved config to {config_mod.config_path()}")
@@ -134,6 +156,10 @@ def cmd_run(args: argparse.Namespace) -> int:
             )
             return 1
         overrides["memory"] = args.mem
+    if args.vga is not None:
+        overrides["vga"] = args.vga
+    if args.display is not None:
+        overrides["display"] = args.display
 
     config = {**config, **overrides}
 
@@ -226,6 +252,18 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         help="Override the configured memory size (e.g. 8G) for this run only.",
+    )
+    run_parser.add_argument(
+        "--vga",
+        choices=planning.VGA_CHOICES,
+        default=None,
+        help="Override the configured VGA device for this run only.",
+    )
+    run_parser.add_argument(
+        "--display",
+        choices=planning.DISPLAY_CHOICES,
+        default=None,
+        help="Override the configured display backend for this run only.",
     )
 
     return parser

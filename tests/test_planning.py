@@ -1,6 +1,13 @@
 import unittest
 
-from qemu_wtg.planning import FIXED_DEFAULTS, build_argv, parse_memory_bytes, plan_launch
+from qemu_wtg.planning import (
+    DISPLAY_CHOICES,
+    FIXED_DEFAULTS,
+    VGA_CHOICES,
+    build_argv,
+    parse_memory_bytes,
+    plan_launch,
+)
 
 OVMF_CODE_PATH = "/usr/share/ovmf/x64/OVMF_CODE.4m.fd"
 WIN_VARS_PATH = "/home/user/.config/qemu-wtg/win_vars.fd"
@@ -72,6 +79,40 @@ class TestBuildArgv(unittest.TestCase):
         self.assertIn("qxl", argv)
         self.assertIn("sdl", argv)
         self.assertIn("file=/dev/sdc,format=raw,if=none,id=disk,aio=native,cache=none", argv)
+
+    def test_every_supported_vga_choice_maps_to_the_correct_flag(self):
+        for vga in VGA_CHOICES:
+            with self.subTest(vga=vga):
+                config = {
+                    "cores": 8,
+                    "threads": 2,
+                    "memory": "8G",
+                    "vga": vga,
+                    "display": "gtk",
+                    "ovmf_code_path": OVMF_CODE_PATH,
+                }
+
+                argv = build_argv(config, "/dev/sdb", WIN_VARS_PATH)
+
+                vga_index = argv.index("-vga")
+                self.assertEqual(argv[vga_index + 1], vga)
+
+    def test_every_supported_display_choice_maps_to_the_correct_flag(self):
+        for display in DISPLAY_CHOICES:
+            with self.subTest(display=display):
+                config = {
+                    "cores": 8,
+                    "threads": 2,
+                    "memory": "8G",
+                    "vga": "std",
+                    "display": display,
+                    "ovmf_code_path": OVMF_CODE_PATH,
+                }
+
+                argv = build_argv(config, "/dev/sdb", WIN_VARS_PATH)
+
+                display_index = argv.index("-display")
+                self.assertEqual(argv[display_index + 1], display)
 
 
 class TestPlanLaunch(unittest.TestCase):

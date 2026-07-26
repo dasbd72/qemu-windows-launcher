@@ -10,6 +10,7 @@ qemu-wtg configure               # pick your Windows-To-Go disk, save config
 qemu-wtg configure --show-all-disks  # also show non-USB disks
 qemu-wtg run --dry-run           # print the QEMU command without launching it
 qemu-wtg run --cores 4 --threads 1 --mem 4G  # override cores/threads/memory for this run only
+qemu-wtg run --vga qxl --display sdl  # override the VGA device/display backend for this run only
 ```
 
 ## Config
@@ -19,18 +20,23 @@ to `~/.config/qemu-wtg/config.json`) by `configure`. Alongside the disk
 choice, `configure` prompts for cores, threads, and memory -- each prompt is
 pre-filled with the current saved value (or the built-in default of
 cores=8, threads=2, mem=8G the first time), so accepting the defaults is a
-single keypress. `ovmf_code_path` points at the host's read-only OVMF code
-image; it defaults to `/usr/share/ovmf/x64/OVMF_CODE.4m.fd` and can be
-overridden by hand-editing the file if your distro puts it somewhere else.
-`run` refuses to launch QEMU with a missing path here rather than passing
-it straight through.
+single keypress. It also offers a fixed picker for the VGA device
+(`std`/`qxl`/`virtio`) and the display backend (`gtk`/`sdl`/`none`) --
+picked by number, not typed freeform, so an unsupported combination can't
+be entered by accident. `ovmf_code_path` points at the host's read-only
+OVMF code image; it defaults to `/usr/share/ovmf/x64/OVMF_CODE.4m.fd` and
+can be overridden by hand-editing the file if your distro puts it
+somewhere else. `run` refuses to launch QEMU with a missing path here
+rather than passing it straight through.
 
-`run --cores`/`--threads`/`--mem` override the saved cores/threads/memory
-for that invocation only -- they're never written back to `config.json`.
-If the requested `cores x threads` exceeds the host's CPU count, or the
-requested memory exceeds what `/proc/meminfo` reports as available, `run`
-prints a warning and asks for a yes/no confirmation before proceeding; the
-oversubscribed values are still used if you confirm.
+`run --cores`/`--threads`/`--mem`/`--vga`/`--display` override the saved
+config for that invocation only -- they're never written back to
+`config.json`. `--vga`/`--display` are restricted to the same fixed choices
+as the `configure` picker. If the requested `cores x threads` exceeds the
+host's CPU count, or the requested memory exceeds what `/proc/meminfo`
+reports as available, `run` prints a warning and asks for a yes/no
+confirmation before proceeding; the oversubscribed values are still used
+if you confirm.
 
 `win_vars.fd`, this VM's writable NVRAM store, lives at
 `$XDG_CONFIG_HOME/qemu-wtg/win_vars.fd`. `run` creates it on first use by

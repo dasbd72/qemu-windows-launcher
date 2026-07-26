@@ -16,8 +16,12 @@ def _run_args(
     cores: int | None = None,
     threads: int | None = None,
     mem: str | None = None,
+    vga: str | None = None,
+    display: str | None = None,
 ) -> argparse.Namespace:
-    return argparse.Namespace(dry_run=dry_run, cores=cores, threads=threads, mem=mem)
+    return argparse.Namespace(
+        dry_run=dry_run, cores=cores, threads=threads, mem=mem, vga=vga, display=display
+    )
 
 
 def _base_config(tmp: str) -> dict:
@@ -176,6 +180,42 @@ class TestCmdRunOverrides(unittest.TestCase):
             mock_save_config.assert_not_called()
             self.assertIn("not-a-size", stderr.getvalue())
 
+    def test_vga_and_display_override_reflected_in_argv_without_persisting(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = _base_config(tmp)
+            with (
+                _mocked_run_environment(tmp, config) as (mock_save_config, mock_execvp, mock_input),
+                mock.patch("sys.stdout", new_callable=io.StringIO) as stdout,
+            ):
+                exit_code = cli.cmd_run(_run_args(dry_run=True, vga="qxl", display="sdl"))
+
+            self.assertEqual(exit_code, 0)
+            self.assertIn("-vga qxl", stdout.getvalue())
+            self.assertIn("-display sdl", stdout.getvalue())
+            mock_save_config.assert_not_called()
+            mock_execvp.assert_not_called()
+            mock_input.assert_not_called()
+
+    def test_invalid_vga_choice_is_rejected_by_argparse_before_running(self):
+        with (
+            mock.patch("sys.stderr", new_callable=io.StringIO) as stderr,
+            self.assertRaises(SystemExit) as ctx,
+        ):
+            cli.build_parser().parse_args(["run", "--vga", "not-a-choice"])
+
+        self.assertEqual(ctx.exception.code, 2)
+        self.assertIn("--vga", stderr.getvalue())
+
+    def test_invalid_display_choice_is_rejected_by_argparse_before_running(self):
+        with (
+            mock.patch("sys.stderr", new_callable=io.StringIO) as stderr,
+            self.assertRaises(SystemExit) as ctx,
+        ):
+            cli.build_parser().parse_args(["run", "--display", "not-a-choice"])
+
+        self.assertEqual(ctx.exception.code, 2)
+        self.assertIn("--display", stderr.getvalue())
+
     def test_non_positive_cores_override_reports_error_without_launching(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = _base_config(tmp)
@@ -286,9 +326,10 @@ def _mocked_configure_environment(existing_config: dict | None, *, answers: list
 
 class TestCmdConfigure(unittest.TestCase):
     def test_accepting_defaults_prefills_prompts_with_fixed_defaults(self):
-        # "1" picks the disk; the three empty answers accept the pre-filled
-        # cores/threads/memory prompts.
-        with _mocked_configure_environment(None, answers=["1", "", "", ""]) as (
+        # "1" picks the disk; the four empty answers accept the pre-filled
+        # cores/threads/memory/vga/display prompts (vga/display are picked
+        # by hitting enter on the pre-selected default index).
+        with _mocked_configure_environment(None, answers=["1", "", "", "", "", ""]) as (
             mock_save_config,
             mock_input,
         ):
@@ -299,6 +340,8 @@ class TestCmdConfigure(unittest.TestCase):
         self.assertEqual(saved_config["cores"], 8)
         self.assertEqual(saved_config["threads"], 2)
         self.assertEqual(saved_config["memory"], "8G")
+        self.assertEqual(saved_config["vga"], "std")
+        self.assertEqual(saved_config["display"], "gtk")
         self.assertEqual(saved_config["disk_by_id"], "/dev/disk/by-id/usb-example")
 
         prompts = [call.args[0] for call in mock_input.call_args_list]
@@ -312,11 +355,11 @@ class TestCmdConfigure(unittest.TestCase):
             "cores": 4,
             "threads": 1,
             "memory": "4G",
-            "vga": "std",
-            "display": "gtk",
+            "vga": "qxl",
+            "display": "sdl",
             "ovmf_code_path": "/usr/share/ovmf/x64/OVMF_CODE.4m.fd",
         }
-        with _mocked_configure_environment(existing_config, answers=["1", "", "", ""]) as (
+        with _mocked_configure_environment(existing_config, answers=["1", "", "", "", "", ""]) as (
             mock_save_config,
             mock_input,
         ):
@@ -327,6 +370,8 @@ class TestCmdConfigure(unittest.TestCase):
         self.assertEqual(saved_config["cores"], 4)
         self.assertEqual(saved_config["threads"], 1)
         self.assertEqual(saved_config["memory"], "4G")
+        self.assertEqual(saved_config["vga"], "qxl")
+        self.assertEqual(saved_config["display"], "sdl")
 
         prompts = [call.args[0] for call in mock_input.call_args_list]
         self.assertTrue(any("[4]" in p for p in prompts))
@@ -334,7 +379,7 @@ class TestCmdConfigure(unittest.TestCase):
         self.assertTrue(any("[4G]" in p for p in prompts))
 
     def test_typed_answers_override_the_prefilled_defaults(self):
-        with _mocked_configure_environment(None, answers=["1", "16", "4", "16G"]) as (
+        with _mocked_configure_environment(None, answers=["1", "16", "4", "16G", "2", "3"]) as (
             mock_save_config,
             _mock_input,
         ):
@@ -345,6 +390,20 @@ class TestCmdConfigure(unittest.TestCase):
         self.assertEqual(saved_config["cores"], 16)
         self.assertEqual(saved_config["threads"], 4)
         self.assertEqual(saved_config["memory"], "16G")
+        self.assertEqual(saved_config["vga"], "qxl")
+        self.assertEqual(saved_config["display"], "none")
+
+    def test_invalid_picker_choice_is_rejected_until_a_valid_one_is_typed(self):
+        # "99" and "abc" are both invalid picker indices for the VGA prompt;
+        # only "2" should be accepted, selecting "qxl".
+        with _mocked_configure_environment(
+            None, answers=["1", "", "", "", "99", "abc", "2", ""]
+        ) as (mock_save_config, _mock_input):
+            exit_code = cli.cmd_configure(argparse.Namespace(show_all_disks=False))
+
+        self.assertEqual(exit_code, 0)
+        saved_config = mock_save_config.call_args[0][0]
+        self.assertEqual(saved_config["vga"], "qxl")
 
 
 if __name__ == "__main__":
