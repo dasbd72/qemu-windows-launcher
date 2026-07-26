@@ -64,12 +64,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(ovmf_error, file=sys.stderr)
         return 1
 
-    ovmf_vars_template_path = str(
-        config.get("ovmf_vars_template_path", planning.FIXED_DEFAULTS["ovmf_vars_template_path"])
-    )
-    win_vars_error = firmware_mod.ensure_win_vars(
-        str(config_mod.win_vars_path()), ovmf_vars_template_path
-    )
+    win_vars_path = str(config_mod.win_vars_path())
+    ovmf_vars_template_path = firmware_mod.default_vars_template_path(ovmf_code_path)
+    win_vars_error = firmware_mod.ensure_win_vars(win_vars_path, ovmf_vars_template_path)
     if win_vars_error is not None:
         print(win_vars_error, file=sys.stderr)
         return 1
@@ -78,9 +75,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     disk_inventory = disks_mod.resolve_disk_inventory(disk_by_id) if disk_by_id else {}
     mount_table = disks_mod.read_mounted_devices()
 
-    plan = planning.plan_launch(
-        config, disk_inventory, mount_table, str(config_mod.win_vars_path())
-    )
+    plan = planning.plan_launch(config, disk_inventory, mount_table, win_vars_path)
     if not plan.ok:
         print(plan.error, file=sys.stderr)
         return 1

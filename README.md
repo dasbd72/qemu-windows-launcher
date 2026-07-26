@@ -14,20 +14,16 @@ qemu-wtg run --dry-run           # print the QEMU command without launching it
 ## Config
 
 Settings are saved to `$XDG_CONFIG_HOME/qemu-wtg/config.json` (falling back
-to `~/.config/qemu-wtg/config.json`) by `configure`. Two fields point at
-OVMF firmware installed on the host and can be overridden by hand-editing
-the file if your distro puts them somewhere else:
+to `~/.config/qemu-wtg/config.json`) by `configure`. `ovmf_code_path` points
+at the host's read-only OVMF code image; it defaults to
+`/usr/share/ovmf/x64/OVMF_CODE.4m.fd` and can be overridden by hand-editing
+the file if your distro puts it somewhere else. `run` refuses to launch
+QEMU with a missing path here rather than passing it straight through.
 
-- `ovmf_code_path` -- the read-only OVMF code image. Defaults to
-  `/usr/share/ovmf/x64/OVMF_CODE.4m.fd`. `run` refuses to launch QEMU with a
-  missing path here rather than passing it straight through.
-- `ovmf_vars_template_path` -- the OVMF variables template used to create
-  `win_vars.fd` (this VM's writable NVRAM store) the first time it's
-  needed. Defaults to `/usr/share/ovmf/x64/OVMF_VARS.4m.fd`.
-
-`win_vars.fd` itself lives at `$XDG_CONFIG_HOME/qemu-wtg/win_vars.fd`. `run`
-creates it from `ovmf_vars_template_path` if missing, and corrects its
-ownership/permissions to the invoking user on every run.
+`win_vars.fd`, this VM's writable NVRAM store, lives at
+`$XDG_CONFIG_HOME/qemu-wtg/win_vars.fd`. `run` creates it on first use by
+copying `OVMF_VARS.4m.fd` from the same directory as `ovmf_code_path`, and
+corrects its ownership/permissions to the invoking user on every run.
 
 ## Development setup
 

@@ -12,8 +12,19 @@ instead of being handed to QEMU as-is.
 import os
 import shutil
 import stat
+import subprocess
 
 _OWNER_RW = 0o600
+_VARS_TEMPLATE_NAME = "OVMF_VARS.4m.fd"
+
+
+def default_vars_template_path(ovmf_code_path: str) -> str:
+    """The OVMF_VARS template sitting alongside the configured OVMF_CODE image.
+
+    Distros ship both files in the same directory, so this tracks wherever
+    `ovmf_code_path` points rather than needing its own config setting.
+    """
+    return os.path.join(os.path.dirname(ovmf_code_path), _VARS_TEMPLATE_NAME)
 
 
 def ensure_win_vars(win_vars_path: str, ovmf_vars_template_path: str) -> str | None:
@@ -27,7 +38,8 @@ def ensure_win_vars(win_vars_path: str, ovmf_vars_template_path: str) -> str | N
         if not os.path.exists(ovmf_vars_template_path):
             return (
                 f"OVMF variables template not found at '{ovmf_vars_template_path}'. "
-                "Install edk2-ovmf, or fix ovmf_code_path/config paths via `configure`."
+                "Install edk2-ovmf, or fix ovmf_code_path in your qemu-wtg config via "
+                "`configure`."
             )
         os.makedirs(os.path.dirname(win_vars_path), exist_ok=True)
         shutil.copyfile(ovmf_vars_template_path, win_vars_path)
@@ -40,11 +52,21 @@ def _fix_ownership_and_permissions(path: str) -> None:
     st = os.stat(path)
     uid, gid = os.getuid(), os.getgid()
     if st.st_uid != uid or st.st_gid != gid:
-        os.chown(path, uid, gid)
+        # A previous run under sudo, or a manual `cp`, can leave this
+        # root-owned -- which means even chown'ing it *to* ourselves needs
+        # root, since only the owner or root may call chown().
+        try:
+            os.chown(path, uid, gid)
+        except PermissionError:
+            subprocess.run(["sudo", "chown", f"{uid}:{gid}", path], check=True)
+        st = os.stat(path)
 
     mode = stat.S_IMODE(st.st_mode)
     if mode & _OWNER_RW != _OWNER_RW:
-        os.chmod(path, mode | _OWNER_RW)
+        try:
+            os.chmod(path, mode | _OWNER_RW)
+        except PermissionError:
+            subprocess.run(["sudo", "chmod", "u+rw", path], check=True)
 
 
 def check_ovmf_code_path(ovmf_code_path: str) -> str | None:
