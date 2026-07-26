@@ -10,6 +10,8 @@ import os
 import subprocess
 from dataclasses import dataclass
 
+from .planning import human_bytes
+
 BY_ID_DIR = "/dev/disk/by-id"
 SYS_BLOCK_DIR = "/sys/block"
 
@@ -59,12 +61,7 @@ def _size_human(device_name: str) -> str:
     except (OSError, ValueError):
         return "unknown size"
 
-    size = float(size_bytes)
-    for unit in ("B", "K", "M", "G", "T"):
-        if size < 1024:
-            return f"{size:.0f}{unit}" if unit == "B" else f"{size:.1f}{unit}"
-        size /= 1024
-    return f"{size:.1f}P"
+    return human_bytes(size_bytes)
 
 
 def _describe(device: str) -> DiskDescription:

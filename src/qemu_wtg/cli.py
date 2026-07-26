@@ -105,6 +105,24 @@ def cmd_run(args: argparse.Namespace) -> int:
         print("No config found. Run `qemu-wtg configure` first.", file=sys.stderr)
         return 1
 
+    # Overrides apply to this run only -- `config` on disk is left untouched.
+    overrides: dict[str, object] = {}
+    if args.cores is not None:
+        if args.cores <= 0:
+            print(
+                f"Invalid --cores value '{args.cores}'. Must be a positive integer.",
+                file=sys.stderr,
+            )
+            return 1
+        overrides["cores"] = args.cores
+    if args.threads is not None:
+        if args.threads <= 0:
+            print(
+                f"Invalid --threads value '{args.threads}'. Must be a positive integer.",
+                file=sys.stderr,
+            )
+            return 1
+        overrides["threads"] = args.threads
     if args.mem is not None:
         try:
             planning.parse_memory_bytes(args.mem)
@@ -115,14 +133,9 @@ def cmd_run(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
+        overrides["memory"] = args.mem
 
-    # Overrides apply to this run only -- `config` on disk is left untouched.
-    config = {
-        **config,
-        **({"cores": args.cores} if args.cores is not None else {}),
-        **({"threads": args.threads} if args.threads is not None else {}),
-        **({"memory": args.mem} if args.mem is not None else {}),
-    }
+    config = {**config, **overrides}
 
     ovmf_code_path = str(config.get("ovmf_code_path", planning.FIXED_DEFAULTS["ovmf_code_path"]))
     ovmf_error = firmware_mod.check_ovmf_code_path(ovmf_code_path)

@@ -37,7 +37,8 @@ def parse_memory_bytes(spec: str) -> int:
     return int(value) * _MEMORY_UNITS[unit.lower()]
 
 
-def _human_bytes(n: int) -> str:
+def human_bytes(n: int) -> str:
+    """Format a byte count as a human-readable size (e.g. 17179869184 -> "16.0G")."""
     size = float(n)
     for unit in ("B", "K", "M", "G", "T"):
         if size < 1024:
@@ -70,7 +71,7 @@ def _oversubscription_warning(
         if requested_bytes > available_memory_bytes:
             warnings.append(
                 f"Requested memory {config['memory']} exceeds the host's "
-                f"available memory ({_human_bytes(available_memory_bytes)})."
+                f"available memory ({human_bytes(available_memory_bytes)})."
             )
 
     return " ".join(warnings) if warnings else None
