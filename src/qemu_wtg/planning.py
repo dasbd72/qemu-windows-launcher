@@ -6,6 +6,7 @@ keeps disk selection and QEMU command assembly, the two places a mistake is
 most costly, cheap to unit test.
 """
 
+import re
 from dataclasses import dataclass
 
 from .config import Config
@@ -19,6 +20,61 @@ FIXED_DEFAULTS: Config = {
     "ovmf_code_path": "/usr/share/ovmf/x64/OVMF_CODE.4m.fd",
 }
 
+_MEMORY_SPEC_RE = re.compile(r"^(\d+)([KMGTkmgt]?)$")
+_MEMORY_UNITS = {"": 1024**2, "k": 1024, "m": 1024**2, "g": 1024**3, "t": 1024**4}
+
+
+def parse_memory_bytes(spec: str) -> int:
+    """Parse a QEMU `-m`-style size spec (e.g. "8G", "512M") into bytes.
+
+    A bare number with no suffix is mebibytes, matching QEMU's own default
+    unit for `-m`. Raises ValueError if `spec` doesn't match that syntax.
+    """
+    match = _MEMORY_SPEC_RE.match(spec.strip())
+    if match is None:
+        raise ValueError(f"Invalid memory size: {spec!r}")
+    value, unit = match.groups()
+    return int(value) * _MEMORY_UNITS[unit.lower()]
+
+
+def _human_bytes(n: int) -> str:
+    size = float(n)
+    for unit in ("B", "K", "M", "G", "T"):
+        if size < 1024:
+            return f"{size:.0f}{unit}" if unit == "B" else f"{size:.1f}{unit}"
+        size /= 1024
+    return f"{size:.1f}P"
+
+
+def _oversubscription_warning(
+    config: Config, cpu_count: int | None, available_memory_bytes: int | None
+) -> str | None:
+    """Compare `config`'s requested cores/threads/memory against host capacity.
+
+    Returns a human-readable warning if either is oversubscribed, or None if
+    both fit (or the corresponding host figure is unavailable to compare
+    against). The requested values are never rejected here -- only flagged,
+    so the caller can ask the user to confirm before proceeding.
+    """
+    warnings: list[str] = []
+
+    requested_vcpus = config["cores"] * config["threads"]
+    if cpu_count is not None and requested_vcpus > cpu_count:
+        warnings.append(
+            f"Requested {requested_vcpus} vCPUs (cores={config['cores']} x "
+            f"threads={config['threads']}) exceeds the host's {cpu_count} CPUs."
+        )
+
+    if available_memory_bytes is not None:
+        requested_bytes = parse_memory_bytes(config["memory"])
+        if requested_bytes > available_memory_bytes:
+            warnings.append(
+                f"Requested memory {config['memory']} exceeds the host's "
+                f"available memory ({_human_bytes(available_memory_bytes)})."
+            )
+
+    return " ".join(warnings) if warnings else None
+
 
 @dataclass
 class LaunchPlan:
@@ -26,6 +82,7 @@ class LaunchPlan:
     error: str | None
     resolved_device: str | None
     argv: list[str] | None
+    warning: str | None = None
 
 
 def build_argv(config: Config, resolved_device: str, win_vars_path: str) -> list[str]:
@@ -73,14 +130,22 @@ def _mounted_partition_of(mount_table: list[str], disk_device: str) -> str | Non
 
 
 def plan_launch(
-    config: Config, disk_inventory: dict[str, str], mount_table: list[str], win_vars_path: str
+    config: Config,
+    disk_inventory: dict[str, str],
+    mount_table: list[str],
+    win_vars_path: str,
+    cpu_count: int | None = None,
+    available_memory_bytes: int | None = None,
 ) -> LaunchPlan:
     """Resolve `config`'s chosen disk against `disk_inventory` and build the argv.
 
     `disk_inventory` maps a disk's stable /dev/disk/by-id path to its current
     resolved device node (e.g. /dev/sdb), for whichever by-id paths are
     currently present on the system. `mount_table` lists every /dev device
-    path currently mounted on the host.
+    path currently mounted on the host. `cpu_count` and
+    `available_memory_bytes` are the host's capacity figures to warn against
+    if the configured cores/threads/memory oversubscribe them; pass None to
+    skip that check (e.g. when the figure couldn't be read).
     """
     disk_by_id = config.get("disk_by_id")
     if not disk_by_id:
@@ -118,4 +183,7 @@ def plan_launch(
         )
 
     argv = build_argv(config, resolved_device, win_vars_path)
-    return LaunchPlan(ok=True, error=None, resolved_device=resolved_device, argv=argv)
+    warning = _oversubscription_warning(config, cpu_count, available_memory_bytes)
+    return LaunchPlan(
+        ok=True, error=None, resolved_device=resolved_device, argv=argv, warning=warning
+    )

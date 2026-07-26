@@ -8,6 +8,7 @@ from . import config as config_mod
 from . import disks as disks_mod
 from . import firmware as firmware_mod
 from . import planning
+from . import sysinfo as sysinfo_mod
 
 
 def _prompt_disk_choice(
@@ -34,22 +35,68 @@ def _prompt_disk_choice(
         print("Invalid choice, try again.")
 
 
+def _prompt_int(label: str, default: int) -> int:
+    while True:
+        raw = input(f"{label} [{default}]: ").strip()
+        if raw == "":
+            return default
+        if raw.isdigit() and int(raw) > 0:
+            return int(raw)
+        print("Enter a positive integer.")
+
+
+def _prompt_memory(label: str, default: str) -> str:
+    while True:
+        raw = input(f"{label} [{default}]: ").strip()
+        if raw == "":
+            return default
+        try:
+            planning.parse_memory_bytes(raw)
+        except ValueError:
+            print("Enter a size like 8G, 512M, or a plain number of MiB.")
+            continue
+        return raw
+
+
+def _default_int(existing: config_mod.Config, key: str) -> int:
+    return int(existing[key]) if key in existing else int(planning.FIXED_DEFAULTS[key])
+
+
+def _default_str(existing: config_mod.Config, key: str) -> str:
+    return str(existing[key]) if key in existing else str(planning.FIXED_DEFAULTS[key])
+
+
 def cmd_configure(args: argparse.Namespace) -> int:
     candidates = disks_mod.list_candidate_disks(show_all=args.show_all_disks)
     chosen = _prompt_disk_choice(candidates)
     if chosen is None:
         return 1
 
-    config = {"disk_by_id": chosen.by_id, **planning.FIXED_DEFAULTS}
+    existing = config_mod.load_config() or {}
+    cores = _prompt_int("Cores", _default_int(existing, "cores"))
+    threads = _prompt_int("Threads", _default_int(existing, "threads"))
+    memory = _prompt_memory("Memory", _default_str(existing, "memory"))
+
+    config = {
+        "disk_by_id": chosen.by_id,
+        **planning.FIXED_DEFAULTS,
+        "cores": cores,
+        "threads": threads,
+        "memory": memory,
+    }
     config_mod.save_config(config)
     print(f"Saved config to {config_mod.config_path()}")
     return 0
 
 
-def _confirm_launch(model: str, size_human: str, device: str) -> bool:
-    prompt = f"About to boot {model} ({size_human}) via {device} -- continue? [y/N] "
+def _yes_no(prompt: str) -> bool:
     answer = input(prompt).strip().lower()
     return answer in ("y", "yes")
+
+
+def _confirm_launch(model: str, size_human: str, device: str) -> bool:
+    prompt = f"About to boot {model} ({size_human}) via {device} -- continue? [y/N] "
+    return _yes_no(prompt)
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -57,6 +104,25 @@ def cmd_run(args: argparse.Namespace) -> int:
     if config is None:
         print("No config found. Run `qemu-wtg configure` first.", file=sys.stderr)
         return 1
+
+    if args.mem is not None:
+        try:
+            planning.parse_memory_bytes(args.mem)
+        except ValueError:
+            print(
+                f"Invalid --mem value '{args.mem}'. Use a size like 8G, 512M, "
+                "or a plain number of MiB.",
+                file=sys.stderr,
+            )
+            return 1
+
+    # Overrides apply to this run only -- `config` on disk is left untouched.
+    config = {
+        **config,
+        **({"cores": args.cores} if args.cores is not None else {}),
+        **({"threads": args.threads} if args.threads is not None else {}),
+        **({"memory": args.mem} if args.mem is not None else {}),
+    }
 
     ovmf_code_path = str(config.get("ovmf_code_path", planning.FIXED_DEFAULTS["ovmf_code_path"]))
     ovmf_error = firmware_mod.check_ovmf_code_path(ovmf_code_path)
@@ -75,7 +141,14 @@ def cmd_run(args: argparse.Namespace) -> int:
     disk_inventory = disks_mod.resolve_disk_inventory(disk_by_id) if disk_by_id else {}
     mount_table = disks_mod.read_mounted_devices()
 
-    plan = planning.plan_launch(config, disk_inventory, mount_table, win_vars_path)
+    plan = planning.plan_launch(
+        config,
+        disk_inventory,
+        mount_table,
+        win_vars_path,
+        cpu_count=sysinfo_mod.cpu_count(),
+        available_memory_bytes=sysinfo_mod.available_memory_bytes(),
+    )
     if not plan.ok:
         print(plan.error, file=sys.stderr)
         return 1
@@ -85,6 +158,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     if args.dry_run:
         print(shlex.join(["sudo", "qemu-system-x86_64", *plan.argv]))
         return 0
+
+    if plan.warning is not None:
+        print(f"Warning: {plan.warning}", file=sys.stderr)
+        if not _yes_no("Continue anyway? [y/N] "):
+            print("Aborted.", file=sys.stderr)
+            return 1
 
     description = disks_mod.describe_disk(plan.resolved_device)
     if not _confirm_launch(description.model, description.size_human, plan.resolved_device):
@@ -116,6 +195,24 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="Print the QEMU command without launching it.",
+    )
+    run_parser.add_argument(
+        "--cores",
+        type=int,
+        default=None,
+        help="Override the configured core count for this run only.",
+    )
+    run_parser.add_argument(
+        "--threads",
+        type=int,
+        default=None,
+        help="Override the configured thread count for this run only.",
+    )
+    run_parser.add_argument(
+        "--mem",
+        type=str,
+        default=None,
+        help="Override the configured memory size (e.g. 8G) for this run only.",
     )
 
     return parser

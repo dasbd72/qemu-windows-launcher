@@ -1,6 +1,6 @@
 import unittest
 
-from qemu_wtg.planning import FIXED_DEFAULTS, build_argv, plan_launch
+from qemu_wtg.planning import FIXED_DEFAULTS, build_argv, parse_memory_bytes, plan_launch
 
 OVMF_CODE_PATH = "/usr/share/ovmf/x64/OVMF_CODE.4m.fd"
 WIN_VARS_PATH = "/home/user/.config/qemu-wtg/win_vars.fd"
@@ -184,6 +184,93 @@ class TestPlanLaunchMountRefusal(unittest.TestCase):
         plan = plan_launch(config, disk_inventory, [], WIN_VARS_PATH)
 
         self.assertTrue(plan.ok)
+
+
+class TestParseMemoryBytes(unittest.TestCase):
+    def test_gigabyte_suffix(self):
+        self.assertEqual(parse_memory_bytes("8G"), 8 * 1024**3)
+
+    def test_megabyte_suffix(self):
+        self.assertEqual(parse_memory_bytes("512M"), 512 * 1024**2)
+
+    def test_kilobyte_suffix(self):
+        self.assertEqual(parse_memory_bytes("2048K"), 2048 * 1024)
+
+    def test_lowercase_suffix(self):
+        self.assertEqual(parse_memory_bytes("4g"), 4 * 1024**3)
+
+    def test_no_suffix_is_mebibytes(self):
+        self.assertEqual(parse_memory_bytes("4096"), 4096 * 1024**2)
+
+    def test_invalid_spec_raises_value_error(self):
+        with self.assertRaises(ValueError):
+            parse_memory_bytes("not-a-size")
+
+
+class TestPlanLaunchCapacityWarning(unittest.TestCase):
+    def test_values_within_host_capacity_produce_no_warning(self):
+        config = _config(cores=4, threads=2, memory="4G")
+        disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
+
+        plan = plan_launch(
+            config,
+            disk_inventory,
+            [],
+            WIN_VARS_PATH,
+            cpu_count=8,
+            available_memory_bytes=16 * 1024**3,
+        )
+
+        self.assertTrue(plan.ok)
+        self.assertIsNone(plan.warning)
+
+    def test_cores_times_threads_exceeding_cpu_count_produces_warning(self):
+        config = _config(cores=8, threads=2, memory="4G")
+        disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
+
+        plan = plan_launch(
+            config,
+            disk_inventory,
+            [],
+            WIN_VARS_PATH,
+            cpu_count=4,
+            available_memory_bytes=16 * 1024**3,
+        )
+
+        self.assertTrue(plan.ok)
+        self.assertIsNotNone(plan.argv)
+        self.assertIsNotNone(plan.warning)
+        assert plan.warning is not None
+        self.assertIn("16", plan.warning)
+        self.assertIn("4", plan.warning)
+
+    def test_memory_exceeding_available_produces_warning(self):
+        config = _config(cores=4, threads=2, memory="32G")
+        disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
+
+        plan = plan_launch(
+            config,
+            disk_inventory,
+            [],
+            WIN_VARS_PATH,
+            cpu_count=8,
+            available_memory_bytes=16 * 1024**3,
+        )
+
+        self.assertTrue(plan.ok)
+        self.assertIsNotNone(plan.argv)
+        self.assertIsNotNone(plan.warning)
+        assert plan.warning is not None
+        self.assertIn("32G", plan.warning)
+
+    def test_omitted_capacity_args_skip_the_check(self):
+        config = _config(cores=64, threads=8, memory="1024G")
+        disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
+
+        plan = plan_launch(config, disk_inventory, [], WIN_VARS_PATH)
+
+        self.assertTrue(plan.ok)
+        self.assertIsNone(plan.warning)
 
 
 if __name__ == "__main__":
