@@ -14,7 +14,7 @@ paru -S qemu-wtg-git
 It's a VCS (`-git`) package: there's no tagged release process, so every
 push to `main` is immediately installable via `paru -Syu`. `PKGBUILD` at
 the repo root builds it, installing `qemu-wtg` to `/usr/bin` and pulling
-in `qemu` and `edk2-ovmf` as dependencies.
+in `qemu-desktop` and `edk2-ovmf` as dependencies.
 
 ## Usage
 
