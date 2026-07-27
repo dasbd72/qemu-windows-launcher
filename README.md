@@ -3,6 +3,19 @@
 Launch a Windows-To-Go USB drive in a QEMU/KVM VM, without hand-editing a
 `qemu-system-x86_64` command line.
 
+## Installation
+
+On Arch Linux, install the `qemu-wtg-git` AUR package:
+
+```
+paru -S qemu-wtg-git
+```
+
+It's a VCS (`-git`) package: there's no tagged release process, so every
+push to `main` is immediately installable via `paru -Syu`. `PKGBUILD` at
+the repo root builds it, installing `qemu-wtg` to `/usr/bin` and pulling
+in `qemu` and `edk2-ovmf` as dependencies.
+
 ## Usage
 
 ```
@@ -65,3 +78,7 @@ uv run ruff format .
 uv run mypy --strict src/qemu_wtg
 PYTHONPATH=src uv run python -m unittest discover -s tests -v
 ```
+
+## License
+
+MIT -- see [LICENSE](LICENSE).
