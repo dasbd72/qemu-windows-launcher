@@ -155,7 +155,7 @@ def plan_launch(
     if not disk_by_id:
         return LaunchPlan(
             ok=False,
-            error="No disk configured. Run `qemu-wtg configure` first.",
+            error="No disk configured. Run `qemu-windows-launcher configure` first.",
             resolved_device=None,
             argv=None,
         )
@@ -166,7 +166,7 @@ def plan_launch(
             ok=False,
             error=(
                 f"Configured disk '{disk_by_id}' was not found. It may be "
-                "unplugged, or no longer exists. Run `qemu-wtg configure` to "
+                "unplugged, or no longer exists. Run `qemu-windows-launcher configure` to "
                 "pick a disk again."
             ),
             resolved_device=None,
@@ -180,7 +180,7 @@ def plan_launch(
             error=(
                 f"Refusing to launch: '{mounted}' on disk '{resolved_device}' is "
                 "currently mounted. Unmount it before launching, or run "
-                "`qemu-wtg configure` if this is the wrong disk."
+                "`qemu-windows-launcher configure` if this is the wrong disk."
             ),
             resolved_device=None,
             argv=None,

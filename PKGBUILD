@@ -1,30 +1,24 @@
-# Maintainer: Sao-Hsuan Lin <twbd723@gmail.com>
-pkgname=qemu-wtg-git
-pkgver=r0.0000000
+# Maintainer: dasbd72 <twbd723@gmail.com>
+pkgname=qemu-windows-launcher
+pkgver=0.1.0
 pkgrel=1
-pkgdesc="Interactive launcher for a Windows-To-Go USB drive in a QEMU/KVM VM"
+pkgdesc="Interactive launcher for a Windows drive in a QEMU/KVM VM"
 arch=('any')
-url="https://github.com/dasbd72/qemu-wtg"
+url="https://github.com/dasbd72/qemu-windows-launcher"
 license=('MIT')
 depends=('python' 'qemu-desktop' 'edk2-ovmf' 'sudo')
-makedepends=('git')
-provides=('qemu-wtg')
-conflicts=('qemu-wtg')
-source=("$pkgname::git+https://github.com/dasbd72/qemu-wtg.git")
+makedepends=('git' 'python-build' 'python-installer' 'python-wheel' 'python-hatchling')
+provides=('qemu-windows-launcher')
+source=("$pkgname::git+https://github.com/dasbd72/qemu-windows-launcher.git#tag=v$pkgver")
 sha256sums=('SKIP')
 
-pkgver() {
-	cd "$srcdir/$pkgname"
-	printf 'r%s.%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+build() {
+	cd "$pkgname"
+	python -m build --wheel --no-isolation
 }
 
 package() {
-	cd "$srcdir/$pkgname"
-
-	install -Dm755 bin/qemu-wtg "$pkgdir/usr/bin/qemu-wtg"
-
-	install -d "$pkgdir/usr/lib/qemu-wtg"
-	cp -r src/qemu_wtg "$pkgdir/usr/lib/qemu-wtg/qemu_wtg"
-
-	install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+	cd "$pkgname"
+    python -m installer --destdir="$pkgdir" dist/*.whl
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

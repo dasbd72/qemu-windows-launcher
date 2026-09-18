@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 .mypy_cache/
 .ruff_cache/
+dist/
+*.tar.gz
+*.pkg.tar.zst
+pkg/
+src/qemu-windows-launcher-*/

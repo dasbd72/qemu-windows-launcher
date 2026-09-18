@@ -10,17 +10,25 @@ from qemu_wtg import config as config_mod
 class TestConfigDir(unittest.TestCase):
     def test_uses_xdg_config_home_when_set(self):
         with mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": "/tmp/xdgtest"}):
-            self.assertEqual(config_mod.config_dir(), Path("/tmp/xdgtest/qemu-wtg"))
+            self.assertEqual(
+                config_mod.config_dir(), Path("/tmp/xdgtest/qemu-windows-launcher")
+            )
 
     def test_falls_back_to_home_config_when_unset(self):
         env = dict(os.environ)
         env.pop("XDG_CONFIG_HOME", None)
         with mock.patch.dict(os.environ, env, clear=True):
-            self.assertEqual(config_mod.config_dir(), Path.home() / ".config" / "qemu-wtg")
+            self.assertEqual(
+                config_mod.config_dir(),
+                Path.home() / ".config" / "qemu-windows-launcher",
+            )
 
     def test_win_vars_path_sits_alongside_config(self):
         with mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": "/tmp/xdgtest"}):
-            self.assertEqual(config_mod.win_vars_path(), Path("/tmp/xdgtest/qemu-wtg/win_vars.fd"))
+            self.assertEqual(
+                config_mod.win_vars_path(),
+                Path("/tmp/xdgtest/qemu-windows-launcher/win_vars.fd"),
+            )
 
 
 class TestLoadSaveConfig(unittest.TestCase):

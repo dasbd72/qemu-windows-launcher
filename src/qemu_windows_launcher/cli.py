@@ -2,7 +2,6 @@ import argparse
 import os
 import shlex
 import sys
-from collections.abc import Callable
 
 from . import config as config_mod
 from . import disks as disks_mod
@@ -16,13 +15,13 @@ def _prompt_disk_choice(
 ) -> disks_mod.DiskCandidate | None:
     if not candidates:
         print(
-            "No candidate disks found. If your Windows-To-Go drive isn't "
-            "showing up, try `qemu-wtg configure --show-all-disks`.",
+            "No candidate disks found. If your Windows drive isn't "
+            "showing up, try `qemu-windows-launcher configure --show-all-disks`.",
             file=sys.stderr,
         )
         return None
 
-    print("Select the Windows-To-Go disk:")
+    print("Select the Windows disk:")
     for i, candidate in enumerate(candidates, start=1):
         print(
             f"  {i}) {candidate.device}  {candidate.model}  {candidate.size_human}  ({candidate.by_id})"
@@ -92,7 +91,9 @@ def cmd_configure(args: argparse.Namespace) -> int:
     cores = _prompt_int("Cores", _default_int(existing, "cores"))
     threads = _prompt_int("Threads", _default_int(existing, "threads"))
     memory = _prompt_memory("Memory", _default_str(existing, "memory"))
-    vga = _prompt_choice("VGA device", planning.VGA_CHOICES, _default_str(existing, "vga"))
+    vga = _prompt_choice(
+        "VGA device", planning.VGA_CHOICES, _default_str(existing, "vga")
+    )
     display = _prompt_choice(
         "Display backend", planning.DISPLAY_CHOICES, _default_str(existing, "display")
     )
@@ -124,7 +125,10 @@ def _confirm_launch(model: str, size_human: str, device: str) -> bool:
 def cmd_run(args: argparse.Namespace) -> int:
     config = config_mod.load_config()
     if config is None:
-        print("No config found. Run `qemu-wtg configure` first.", file=sys.stderr)
+        print(
+            "No config found. Run `qemu-windows-launcher configure` first.",
+            file=sys.stderr,
+        )
         return 1
 
     # Overrides apply to this run only -- `config` on disk is left untouched.
@@ -163,7 +167,9 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     config = {**config, **overrides}
 
-    ovmf_code_path = str(config.get("ovmf_code_path", planning.FIXED_DEFAULTS["ovmf_code_path"]))
+    ovmf_code_path = str(
+        config.get("ovmf_code_path", planning.FIXED_DEFAULTS["ovmf_code_path"])
+    )
     ovmf_error = firmware_mod.check_ovmf_code_path(ovmf_code_path)
     if ovmf_error is not None:
         print(ovmf_error, file=sys.stderr)
@@ -171,7 +177,9 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     win_vars_path = str(config_mod.win_vars_path())
     ovmf_vars_template_path = firmware_mod.default_vars_template_path(ovmf_code_path)
-    win_vars_error = firmware_mod.ensure_win_vars(win_vars_path, ovmf_vars_template_path)
+    win_vars_error = firmware_mod.ensure_win_vars(
+        win_vars_path, ovmf_vars_template_path
+    )
     if win_vars_error is not None:
         print(win_vars_error, file=sys.stderr)
         return 1
@@ -205,7 +213,9 @@ def cmd_run(args: argparse.Namespace) -> int:
             return 1
 
     description = disks_mod.describe_disk(plan.resolved_device)
-    if not _confirm_launch(description.model, description.size_human, plan.resolved_device):
+    if not _confirm_launch(
+        description.model, description.size_human, plan.resolved_device
+    ):
         print("Aborted.", file=sys.stderr)
         return 1
 
@@ -218,7 +228,8 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="qemu-wtg", description="Launch a Windows-To-Go USB drive in a QEMU/KVM VM."
+        prog="qemu-windows-launcher",
+        description="Launch a Windows drive in a QEMU/KVM VM.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -228,8 +239,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Show all block devices, not just USB-attached ones.",
     )
+    configure_parser.set_defaults(func=cmd_configure)
 
-    run_parser = subparsers.add_parser("run", help="Launch the VM using the saved config.")
+    run_parser = subparsers.add_parser(
+        "run", help="Launch the VM using the saved config."
+    )
     run_parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -265,21 +279,6 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Override the configured display backend for this run only.",
     )
+    run_parser.set_defaults(func=cmd_run)
 
     return parser
-
-
-COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
-    "configure": cmd_configure,
-    "run": cmd_run,
-}
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    return COMMANDS[args.command](args)
-
-
-if __name__ == "__main__":
-    sys.exit(main())

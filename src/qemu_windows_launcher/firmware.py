@@ -38,7 +38,7 @@ def ensure_win_vars(win_vars_path: str, ovmf_vars_template_path: str) -> str | N
         if not os.path.exists(ovmf_vars_template_path):
             return (
                 f"OVMF variables template not found at '{ovmf_vars_template_path}'. "
-                "Install edk2-ovmf, or fix ovmf_code_path in your qemu-wtg config via "
+                "Install edk2-ovmf, or fix ovmf_code_path in your qemu-windows-launcher config via "
                 "`configure`."
             )
         os.makedirs(os.path.dirname(win_vars_path), exist_ok=True)
@@ -78,6 +78,6 @@ def check_ovmf_code_path(ovmf_code_path: str) -> str | None:
     if not os.path.exists(ovmf_code_path):
         return (
             f"OVMF code firmware not found at '{ovmf_code_path}'. Install "
-            "edk2-ovmf, or fix ovmf_code_path in your qemu-wtg config via `configure`."
+            "edk2-ovmf, or fix ovmf_code_path in your qemu-windows-launcher config via `configure`."
         )
     return None

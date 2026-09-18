@@ -1,6 +1,6 @@
 """Reading and writing this tool's persisted config.
 
-Config lives under $XDG_CONFIG_HOME/qemu-wtg (falling back to ~/.config),
+Config lives under $XDG_CONFIG_HOME/qemu-windows-launcher (falling back to ~/.config),
 alongside the managed win_vars.fd file.
 """
 
@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 from typing import Any, cast
 
-APP_NAME = "qemu-wtg"
+APP_NAME = "qemu-windows-launcher"
 
 type Config = dict[str, Any]
 

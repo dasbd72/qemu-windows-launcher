@@ -10,7 +10,7 @@ from qemu_wtg.planning import (
 )
 
 OVMF_CODE_PATH = "/usr/share/ovmf/x64/OVMF_CODE.4m.fd"
-WIN_VARS_PATH = "/home/user/.config/qemu-wtg/win_vars.fd"
+WIN_VARS_PATH = "/home/user/.config/qemu-windows-launcher/win_vars.fd"
 
 
 def _config(**overrides):
@@ -78,7 +78,9 @@ class TestBuildArgv(unittest.TestCase):
         self.assertIn("4G", argv)
         self.assertIn("qxl", argv)
         self.assertIn("sdl", argv)
-        self.assertIn("file=/dev/sdc,format=raw,if=none,id=disk,aio=native,cache=none", argv)
+        self.assertIn(
+            "file=/dev/sdc,format=raw,if=none,id=disk,aio=native,cache=none", argv
+        )
 
     def test_every_supported_vga_choice_maps_to_the_correct_flag(self):
         for vga in VGA_CHOICES:
@@ -125,7 +127,9 @@ class TestPlanLaunch(unittest.TestCase):
         self.assertTrue(plan.ok)
         self.assertIsNone(plan.error)
         self.assertEqual(plan.resolved_device, "/dev/sdb")
-        self.assertIn("file=/dev/sdb,format=raw,if=none,id=disk,aio=native,cache=none", plan.argv)
+        self.assertIn(
+            "file=/dev/sdb,format=raw,if=none,id=disk,aio=native,cache=none", plan.argv
+        )
 
     def test_stale_by_id_path_produces_clear_error_not_wrong_resolution(self):
         config = _config()
