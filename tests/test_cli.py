@@ -57,7 +57,9 @@ def _mocked_run_environment(
             return_value=os.path.join(tmp, "win_vars.fd"),
         ),
         mock.patch("qemu_wtg.cli.config_mod.save_config") as mock_save_config,
-        mock.patch("qemu_wtg.cli.disks_mod.resolve_disk_inventory", return_value=disk_inventory),
+        mock.patch(
+            "qemu_wtg.cli.disks_mod.resolve_disk_inventory", return_value=disk_inventory
+        ),
         mock.patch("qemu_wtg.cli.disks_mod.read_mounted_devices", return_value=[]),
         mock.patch(
             "qemu_wtg.cli.disks_mod.describe_disk",
@@ -139,7 +141,11 @@ class TestCmdRunOverrides(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             config = _base_config(tmp)
             with (
-                _mocked_run_environment(tmp, config) as (mock_save_config, mock_execvp, mock_input),
+                _mocked_run_environment(tmp, config) as (
+                    mock_save_config,
+                    mock_execvp,
+                    mock_input,
+                ),
                 mock.patch("sys.stdout", new_callable=io.StringIO) as stdout,
             ):
                 exit_code = cli.cmd_run(_run_args(dry_run=True, cores=16, threads=4))
@@ -154,7 +160,11 @@ class TestCmdRunOverrides(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             config = _base_config(tmp)
             with (
-                _mocked_run_environment(tmp, config) as (mock_save_config, mock_execvp, mock_input),
+                _mocked_run_environment(tmp, config) as (
+                    mock_save_config,
+                    mock_execvp,
+                    mock_input,
+                ),
                 mock.patch("sys.stdout", new_callable=io.StringIO) as stdout,
             ):
                 exit_code = cli.cmd_run(_run_args(dry_run=True, mem="2G"))
@@ -169,7 +179,11 @@ class TestCmdRunOverrides(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             config = _base_config(tmp)
             with (
-                _mocked_run_environment(tmp, config) as (mock_save_config, mock_execvp, mock_input),
+                _mocked_run_environment(tmp, config) as (
+                    mock_save_config,
+                    mock_execvp,
+                    mock_input,
+                ),
                 mock.patch("sys.stderr", new_callable=io.StringIO) as stderr,
             ):
                 exit_code = cli.cmd_run(_run_args(mem="not-a-size"))
@@ -184,10 +198,16 @@ class TestCmdRunOverrides(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             config = _base_config(tmp)
             with (
-                _mocked_run_environment(tmp, config) as (mock_save_config, mock_execvp, mock_input),
+                _mocked_run_environment(tmp, config) as (
+                    mock_save_config,
+                    mock_execvp,
+                    mock_input,
+                ),
                 mock.patch("sys.stdout", new_callable=io.StringIO) as stdout,
             ):
-                exit_code = cli.cmd_run(_run_args(dry_run=True, vga="qxl", display="sdl"))
+                exit_code = cli.cmd_run(
+                    _run_args(dry_run=True, vga="qxl", display="sdl")
+                )
 
             self.assertEqual(exit_code, 0)
             self.assertIn("-vga qxl", stdout.getvalue())
@@ -220,7 +240,11 @@ class TestCmdRunOverrides(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             config = _base_config(tmp)
             with (
-                _mocked_run_environment(tmp, config) as (mock_save_config, mock_execvp, mock_input),
+                _mocked_run_environment(tmp, config) as (
+                    mock_save_config,
+                    mock_execvp,
+                    mock_input,
+                ),
                 mock.patch("sys.stderr", new_callable=io.StringIO) as stderr,
             ):
                 exit_code = cli.cmd_run(_run_args(cores=0))
@@ -235,7 +259,11 @@ class TestCmdRunOverrides(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             config = _base_config(tmp)
             with (
-                _mocked_run_environment(tmp, config) as (mock_save_config, mock_execvp, mock_input),
+                _mocked_run_environment(tmp, config) as (
+                    mock_save_config,
+                    mock_execvp,
+                    mock_input,
+                ),
                 mock.patch("sys.stderr", new_callable=io.StringIO) as stderr,
             ):
                 exit_code = cli.cmd_run(_run_args(threads=-1))
@@ -315,7 +343,9 @@ _CANDIDATE = DiskCandidate(
 @contextmanager
 def _mocked_configure_environment(existing_config: dict | None, *, answers: list[str]):
     with (
-        mock.patch("qemu_wtg.cli.disks_mod.list_candidate_disks", return_value=[_CANDIDATE]),
+        mock.patch(
+            "qemu_wtg.cli.disks_mod.list_candidate_disks", return_value=[_CANDIDATE]
+        ),
         mock.patch("qemu_wtg.cli.config_mod.load_config", return_value=existing_config),
         mock.patch("qemu_wtg.cli.config_mod.save_config") as mock_save_config,
         mock.patch("qemu_wtg.cli.config_mod.config_path", return_value="/config/path"),
@@ -359,7 +389,9 @@ class TestCmdConfigure(unittest.TestCase):
             "display": "sdl",
             "ovmf_code_path": "/usr/share/ovmf/x64/OVMF_CODE.4m.fd",
         }
-        with _mocked_configure_environment(existing_config, answers=["1", "", "", "", "", ""]) as (
+        with _mocked_configure_environment(
+            existing_config, answers=["1", "", "", "", "", ""]
+        ) as (
             mock_save_config,
             mock_input,
         ):
@@ -379,7 +411,9 @@ class TestCmdConfigure(unittest.TestCase):
         self.assertTrue(any("[4G]" in p for p in prompts))
 
     def test_typed_answers_override_the_prefilled_defaults(self):
-        with _mocked_configure_environment(None, answers=["1", "16", "4", "16G", "2", "3"]) as (
+        with _mocked_configure_environment(
+            None, answers=["1", "16", "4", "16G", "2", "3"]
+        ) as (
             mock_save_config,
             _mock_input,
         ):

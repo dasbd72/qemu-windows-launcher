@@ -99,7 +99,8 @@ class TestEnsureWinVars(unittest.TestCase):
 
             self.assertIsNone(error)
             mock_run.assert_called_once_with(
-                ["sudo", "chown", f"{os.getuid()}:{os.getgid()}", win_vars_path], check=True
+                ["sudo", "chown", f"{os.getuid()}:{os.getgid()}", win_vars_path],
+                check=True,
             )
 
     def test_falls_back_to_sudo_chmod_when_direct_chmod_is_denied(self):
@@ -119,7 +120,9 @@ class TestEnsureWinVars(unittest.TestCase):
                 error = firmware.ensure_win_vars(win_vars_path, template_path)
 
             self.assertIsNone(error)
-            mock_run.assert_called_once_with(["sudo", "chmod", "u+rw", win_vars_path], check=True)
+            mock_run.assert_called_once_with(
+                ["sudo", "chmod", "u+rw", win_vars_path], check=True
+            )
 
     def test_corrects_ownership_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp:
