@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from qemu_wtg import firmware
+from qemu_windows_launcher import firmware
 
 
 class TestEnsureWinVars(unittest.TestCase):
@@ -91,9 +91,14 @@ class TestEnsureWinVars(unittest.TestCase):
             )
 
             with (
-                mock.patch("qemu_wtg.firmware.os.stat", return_value=fake_stat),
-                mock.patch("qemu_wtg.firmware.os.chown", side_effect=PermissionError),
-                mock.patch("qemu_wtg.firmware.subprocess.run") as mock_run,
+                mock.patch(
+                    "qemu_windows_launcher.firmware.os.stat", return_value=fake_stat
+                ),
+                mock.patch(
+                    "qemu_windows_launcher.firmware.os.chown",
+                    side_effect=PermissionError,
+                ),
+                mock.patch("qemu_windows_launcher.firmware.subprocess.run") as mock_run,
             ):
                 error = firmware.ensure_win_vars(win_vars_path, template_path)
 
@@ -114,8 +119,11 @@ class TestEnsureWinVars(unittest.TestCase):
             os.chmod(win_vars_path, 0o400)
 
             with (
-                mock.patch("qemu_wtg.firmware.os.chmod", side_effect=PermissionError),
-                mock.patch("qemu_wtg.firmware.subprocess.run") as mock_run,
+                mock.patch(
+                    "qemu_windows_launcher.firmware.os.chmod",
+                    side_effect=PermissionError,
+                ),
+                mock.patch("qemu_windows_launcher.firmware.subprocess.run") as mock_run,
             ):
                 error = firmware.ensure_win_vars(win_vars_path, template_path)
 
@@ -152,8 +160,10 @@ class TestEnsureWinVars(unittest.TestCase):
             )
 
             with (
-                mock.patch("qemu_wtg.firmware.os.stat", return_value=fake_stat),
-                mock.patch("qemu_wtg.firmware.os.chown") as mock_chown,
+                mock.patch(
+                    "qemu_windows_launcher.firmware.os.stat", return_value=fake_stat
+                ),
+                mock.patch("qemu_windows_launcher.firmware.os.chown") as mock_chown,
             ):
                 error = firmware.ensure_win_vars(win_vars_path, template_path)
 

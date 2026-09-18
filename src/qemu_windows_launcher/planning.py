@@ -166,8 +166,8 @@ def plan_launch(
             ok=False,
             error=(
                 f"Configured disk '{disk_by_id}' was not found. It may be "
-                "unplugged, or no longer exists. Run `qemu-windows-launcher configure` to "
-                "pick a disk again."
+                "unplugged, or no longer exists. Run "
+                "`qemu-windows-launcher configure` to pick a disk again."
             ),
             resolved_device=None,
             argv=None,

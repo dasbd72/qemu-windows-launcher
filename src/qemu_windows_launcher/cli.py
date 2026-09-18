@@ -24,7 +24,8 @@ def _prompt_disk_choice(
     print("Select the Windows disk:")
     for i, candidate in enumerate(candidates, start=1):
         print(
-            f"  {i}) {candidate.device}  {candidate.model}  {candidate.size_human}  ({candidate.by_id})"
+            f"  {i}) {candidate.device}  {candidate.model}  "
+            f"{candidate.size_human}  ({candidate.by_id})"
         )
 
     while True:
@@ -144,7 +145,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     if args.threads is not None:
         if args.threads <= 0:
             print(
-                f"Invalid --threads value '{args.threads}'. Must be a positive integer.",
+                f"Invalid --threads value '{args.threads}'. "
+                "Must be a positive integer.",
                 file=sys.stderr,
             )
             return 1

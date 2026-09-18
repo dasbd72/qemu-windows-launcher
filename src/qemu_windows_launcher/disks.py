@@ -108,7 +108,7 @@ def list_candidate_disks(show_all: bool = False) -> list[DiskCandidate]:
 
         by_id = _find_by_id_path(device)
         if by_id is None:
-            continue  # no stable identifier available -- can't safely persist this choice
+            continue  # no stable identifier -- can't safely persist this choice
 
         description = _describe(device)
         candidates.append(

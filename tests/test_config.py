@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from qemu_wtg import config as config_mod
+from qemu_windows_launcher import config as config_mod
 
 
 class TestConfigDir(unittest.TestCase):

@@ -1,6 +1,6 @@
 import unittest
 
-from qemu_wtg.planning import (
+from qemu_windows_launcher.planning import (
     DISPLAY_CHOICES,
     FIXED_DEFAULTS,
     VGA_CHOICES,

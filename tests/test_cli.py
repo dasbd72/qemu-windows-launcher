@@ -6,8 +6,8 @@ import unittest
 from contextlib import contextmanager
 from unittest import mock
 
-from qemu_wtg import cli
-from qemu_wtg.disks import DiskCandidate, DiskDescription
+from qemu_windows_launcher import cli
+from qemu_windows_launcher.disks import DiskCandidate, DiskDescription
 
 
 def _run_args(
@@ -51,27 +51,36 @@ def _mocked_run_environment(
 ):
     disk_inventory = {"/dev/disk/by-id/usb-example": "/dev/sdb"}
     with (
-        mock.patch("qemu_wtg.cli.config_mod.load_config", return_value=config),
         mock.patch(
-            "qemu_wtg.cli.config_mod.win_vars_path",
+            "qemu_windows_launcher.cli.config_mod.load_config", return_value=config
+        ),
+        mock.patch(
+            "qemu_windows_launcher.cli.config_mod.win_vars_path",
             return_value=os.path.join(tmp, "win_vars.fd"),
         ),
-        mock.patch("qemu_wtg.cli.config_mod.save_config") as mock_save_config,
         mock.patch(
-            "qemu_wtg.cli.disks_mod.resolve_disk_inventory", return_value=disk_inventory
+            "qemu_windows_launcher.cli.config_mod.save_config"
+        ) as mock_save_config,
+        mock.patch(
+            "qemu_windows_launcher.cli.disks_mod.resolve_disk_inventory",
+            return_value=disk_inventory,
         ),
-        mock.patch("qemu_wtg.cli.disks_mod.read_mounted_devices", return_value=[]),
         mock.patch(
-            "qemu_wtg.cli.disks_mod.describe_disk",
+            "qemu_windows_launcher.cli.disks_mod.read_mounted_devices", return_value=[]
+        ),
+        mock.patch(
+            "qemu_windows_launcher.cli.disks_mod.describe_disk",
             return_value=DiskDescription(model="Example USB Drive", size_human="32.0G"),
         ),
-        mock.patch("qemu_wtg.cli.sysinfo_mod.cpu_count", return_value=cpu_count),
         mock.patch(
-            "qemu_wtg.cli.sysinfo_mod.available_memory_bytes",
+            "qemu_windows_launcher.cli.sysinfo_mod.cpu_count", return_value=cpu_count
+        ),
+        mock.patch(
+            "qemu_windows_launcher.cli.sysinfo_mod.available_memory_bytes",
             return_value=available_memory_bytes,
         ),
-        mock.patch("qemu_wtg.cli.os.execvp") as mock_execvp,
-        mock.patch("qemu_wtg.cli.input") as mock_input,
+        mock.patch("qemu_windows_launcher.cli.os.execvp") as mock_execvp,
+        mock.patch("qemu_windows_launcher.cli.input") as mock_input,
     ):
         yield mock_save_config, mock_execvp, mock_input
 
@@ -90,9 +99,12 @@ class TestCmdRunFirmwareValidation(unittest.TestCase):
             }
 
             with (
-                mock.patch("qemu_wtg.cli.config_mod.load_config", return_value=config),
-                mock.patch("qemu_wtg.cli.os.execvp") as mock_execvp,
-                mock.patch("qemu_wtg.cli.input") as mock_input,
+                mock.patch(
+                    "qemu_windows_launcher.cli.config_mod.load_config",
+                    return_value=config,
+                ),
+                mock.patch("qemu_windows_launcher.cli.os.execvp") as mock_execvp,
+                mock.patch("qemu_windows_launcher.cli.input") as mock_input,
                 mock.patch("sys.stderr", new_callable=io.StringIO) as stderr,
             ):
                 exit_code = cli.cmd_run(_run_args())
@@ -119,13 +131,16 @@ class TestCmdRunFirmwareValidation(unittest.TestCase):
             }
 
             with (
-                mock.patch("qemu_wtg.cli.config_mod.load_config", return_value=config),
                 mock.patch(
-                    "qemu_wtg.cli.config_mod.win_vars_path",
+                    "qemu_windows_launcher.cli.config_mod.load_config",
+                    return_value=config,
+                ),
+                mock.patch(
+                    "qemu_windows_launcher.cli.config_mod.win_vars_path",
                     return_value=os.path.join(tmp, "win_vars.fd"),
                 ),
-                mock.patch("qemu_wtg.cli.os.execvp") as mock_execvp,
-                mock.patch("qemu_wtg.cli.input") as mock_input,
+                mock.patch("qemu_windows_launcher.cli.os.execvp") as mock_execvp,
+                mock.patch("qemu_windows_launcher.cli.input") as mock_input,
                 mock.patch("sys.stderr", new_callable=io.StringIO) as stderr,
             ):
                 exit_code = cli.cmd_run(_run_args())
@@ -344,12 +359,23 @@ _CANDIDATE = DiskCandidate(
 def _mocked_configure_environment(existing_config: dict | None, *, answers: list[str]):
     with (
         mock.patch(
-            "qemu_wtg.cli.disks_mod.list_candidate_disks", return_value=[_CANDIDATE]
+            "qemu_windows_launcher.cli.disks_mod.list_candidate_disks",
+            return_value=[_CANDIDATE],
         ),
-        mock.patch("qemu_wtg.cli.config_mod.load_config", return_value=existing_config),
-        mock.patch("qemu_wtg.cli.config_mod.save_config") as mock_save_config,
-        mock.patch("qemu_wtg.cli.config_mod.config_path", return_value="/config/path"),
-        mock.patch("qemu_wtg.cli.input", side_effect=answers) as mock_input,
+        mock.patch(
+            "qemu_windows_launcher.cli.config_mod.load_config",
+            return_value=existing_config,
+        ),
+        mock.patch(
+            "qemu_windows_launcher.cli.config_mod.save_config"
+        ) as mock_save_config,
+        mock.patch(
+            "qemu_windows_launcher.cli.config_mod.config_path",
+            return_value="/config/path",
+        ),
+        mock.patch(
+            "qemu_windows_launcher.cli.input", side_effect=answers
+        ) as mock_input,
     ):
         yield mock_save_config, mock_input
 
