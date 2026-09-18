@@ -23,7 +23,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: mypy --strict
-        run: uv run mypy --strict src/qemu_wtg
+        run: uv run mypy --strict src/qemu_windows_launcher
 
       - name: unittest
         run: PYTHONPATH=src uv run python -m unittest discover -s tests -v
